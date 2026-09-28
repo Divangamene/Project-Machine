@@ -1,4 +1,3 @@
-```python
 from pathlib import Path
 
 import joblib
@@ -1036,4 +1035,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-```
