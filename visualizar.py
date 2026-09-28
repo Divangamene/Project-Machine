@@ -11,7 +11,7 @@ import streamlit as st
 
 BASE_DIR = Path(__file__).resolve().parent
 
-DATASET_PATH = BASE_DIR / "data" / "dataset_carro.csv"
+DATASET_PATH = BASE_DIR / "data" / "dataset.csv"
 MODEL_PATH = BASE_DIR / "modelo.pkl"
 
 
