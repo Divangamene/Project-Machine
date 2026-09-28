@@ -1,165 +1,546 @@
+```python
+from pathlib import Path
+
+import joblib
+import pandas as pd
 import streamlit as st
 
-import pandas as pd
 
-from sklearn.model_selection import train_test_split
+# ============================================================
+# CONFIGURAÇÃO DOS CAMINHOS
+# ============================================================
 
-from sklearn.linear_model import LogisticRegression
+BASE_DIR = Path(__file__).resolve().parent
+
+DATASET_PATH = BASE_DIR / "data" / "dataset_carro.csv"
+MODEL_PATH = BASE_DIR / "modelo.pkl"
 
 
-
-# 1. Configuração da Página
+# ============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================================================
 
 st.set_page_config(
-
-    page_title="Previsão de Falha do Veículo",
-
-    page_icon="🚗",
-
-    layout="centered"
-
+    page_title="Machine Condition Assessment",
+    page_icon=None,
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 
+# ============================================================
+# CSS
+# ============================================================
 
-# 2. Função com cache para treinar e manter o modelo em memória
+st.markdown(
+    """
+    <style>
 
-@st.cache_resource
+    #MainMenu {
+        visibility: hidden;
+    }
 
-def carregar_e_treinar_modelo():
+    header {
+        visibility: hidden;
+    }
 
-    base_dados = pd.read_csv("dataset_carro.csv", keep_default_na=False)
+    footer {
+        visibility: hidden;
+    }
 
-   
+    .stApp {
+        background-color: #F7F8FA;
+        color: #172033;
+    }
 
-    features = [
+    .block-container {
+        max-width: 1180px;
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
+    }
 
-        'SoC', 'SoH', 'Battery_Voltage', 'Battery_Temperature',
+    html, body, [class*="css"] {
+        font-family:
+            Inter,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+    }
 
-        'Motor_Temperature', 'Motor_Vibration', 'Driving_Speed'
+    /* --------------------------------------------------------
+       TOP BAR
+       -------------------------------------------------------- */
 
-    ]
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
 
-    X = base_dados[features]
+        padding-bottom: 1.4rem;
+        margin-bottom: 2.2rem;
 
-    y = base_dados['Failure_Probability']
+        border-bottom: 1px solid #E4E7EC;
+    }
 
-   
+    .brand {
+        color: #172033;
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        font-size: 0.78rem;
+        font-weight: 700;
 
-    model = LogisticRegression(max_iter=1000)
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+    }
 
-    model.fit(X_train, y_train)
+    .system-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
 
-   
+        color: #667085;
 
-    return model
+        font-size: 0.72rem;
+        font-weight: 600;
+
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+
+        border-radius: 50%;
+
+        background-color: #12B76A;
+    }
+
+    /* --------------------------------------------------------
+       HERO
+       -------------------------------------------------------- */
+
+    .hero {
+        margin-bottom: 2.5rem;
+    }
+
+    .hero-label {
+        margin-bottom: 0.65rem;
+
+        color: #667085;
+
+        font-size: 0.7rem;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .hero-title {
+        margin: 0;
+
+        color: #101828;
+
+        font-size: 2.5rem;
+        line-height: 1.1;
+        font-weight: 650;
+
+        letter-spacing: -0.035em;
+    }
+
+    .hero-description {
+        max-width: 700px;
+
+        margin-top: 0.85rem;
+
+        color: #667085;
+
+        font-size: 0.98rem;
+        line-height: 1.65;
+    }
+
+    /* --------------------------------------------------------
+       SECTION
+       -------------------------------------------------------- */
+
+    .section-title {
+        margin-bottom: 1rem;
+
+        color: #475467;
+
+        font-size: 0.72rem;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    /* --------------------------------------------------------
+       CARDS
+       -------------------------------------------------------- */
+
+    .card {
+        padding: 1.5rem;
+
+        margin-bottom: 1rem;
+
+        background: #FFFFFF;
+
+        border: 1px solid #E4E7EC;
+        border-radius: 12px;
+    }
+
+    .card-title {
+        margin-bottom: 0.3rem;
+
+        color: #101828;
+
+        font-size: 1rem;
+        font-weight: 650;
+    }
+
+    .card-description {
+        margin-bottom: 1.25rem;
+
+        color: #667085;
+
+        font-size: 0.82rem;
+        line-height: 1.5;
+    }
+
+    /* --------------------------------------------------------
+       RESULT
+       -------------------------------------------------------- */
+
+    .assessment {
+        padding: 1.8rem;
+
+        margin-top: 1.5rem;
+
+        background: #FFFFFF;
+
+        border: 1px solid #D0D5DD;
+        border-radius: 14px;
+    }
+
+    .assessment-label {
+        color: #667085;
+
+        font-size: 0.7rem;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .assessment-status {
+        margin-top: 0.45rem;
+
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+    }
+
+    .assessment-description {
+        color: #667085;
+
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+
+    .normal {
+        color: #087443;
+    }
+
+    .warning {
+        color: #B54708;
+    }
+
+    .critical {
+        color: #B42318;
+    }
+
+    /* --------------------------------------------------------
+       PROBABILITY
+       -------------------------------------------------------- */
+
+    .probability-box {
+        padding: 1.5rem;
+
+        margin-top: 1rem;
+
+        background: #FFFFFF;
+
+        border: 1px solid #E4E7EC;
+        border-radius: 12px;
+    }
+
+    .probability-header {
+        display: flex;
+        justify-content: space-between;
+
+        margin-bottom: 0.6rem;
+
+        color: #475467;
+
+        font-size: 0.78rem;
+    }
+
+    .probability-value {
+        color: #101828;
+
+        font-weight: 700;
+    }
+
+    .progress-background {
+        width: 100%;
+        height: 7px;
+
+        overflow: hidden;
+
+        background: #EAECF0;
+
+        border-radius: 10px;
+    }
+
+    .progress-fill {
+        height: 100%;
+
+        background: #344054;
+
+        border-radius: 10px;
+    }
+
+    /* --------------------------------------------------------
+       METRICS
+       -------------------------------------------------------- */
+
+    .metric-card {
+        padding: 1.25rem;
+
+        background: #FFFFFF;
+
+        border: 1px solid #E4E7EC;
+        border-radius: 12px;
+    }
+
+    .metric-label {
+        color: #667085;
+
+        font-size: 0.68rem;
+        font-weight: 700;
+
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+    }
+
+    .metric-value {
+        margin-top: 0.35rem;
+
+        color: #101828;
+
+        font-size: 1.4rem;
+        font-weight: 650;
+    }
+
+    /* --------------------------------------------------------
+       BUTTON
+       -------------------------------------------------------- */
+
+    .stButton > button {
+        width: 100%;
+        height: 3rem;
+
+        border: 1px solid #172033;
+        border-radius: 8px;
+
+        background-color: #172033;
+        color: #FFFFFF;
+
+        font-size: 0.84rem;
+        font-weight: 650;
+    }
+
+    .stButton > button:hover {
+        border-color: #273449;
+        background-color: #273449;
+        color: #FFFFFF;
+    }
+
+    /* --------------------------------------------------------
+       INPUTS
+       -------------------------------------------------------- */
+
+    label {
+        color: #344054 !important;
+
+        font-size: 0.76rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* --------------------------------------------------------
+       FOOTER
+       -------------------------------------------------------- */
+
+    .footer {
+        display: flex;
+        justify-content: space-between;
+
+        padding-top: 1.5rem;
+        margin-top: 3rem;
+
+        border-top: 1px solid #E4E7EC;
+
+        color: #98A2B3;
+
+        font-size: 0.7rem;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
+# ============================================================
+# CARREGAR DATASET
+# ============================================================
 
-# Carregamento seguro do modelo
+@st.cache_data
+def carregar_dataset():
+
+    if not DATASET_PATH.exists():
+        return None
+
+    return pd.read_csv(DATASET_PATH)
+
 
 try:
 
-    model = carregar_e_treinar_modelo()
+    dataset = carregar_dataset()
 
-except FileNotFoundError:
+except Exception as error:
 
-    st.error("❌ O arquivo 'dataset_carro.csv' não foi encontrado na mesma pasta do código.")
-
-    st.stop()
-
-except Exception as e:
-
-    st.error(f"❌ Erro ao processar os dados: {e}")
+    st.error(
+        f"Não foi possível carregar o dataset: {error}"
+    )
 
     st.stop()
 
 
+# ============================================================
+# CARREGAR MODELO
+# ============================================================
 
-# 3. Interface Gráfica
+@st.cache_resource
+def carregar_modelo():
 
-st.title("🚗 Previsão de Falha de Componentes")
+    if not MODEL_PATH.exists():
+        return None
 
-st.write("Insira os parâmetros de telemetria do veículo para prever o risco de falha.")
-
-
-
-st.subheader("📊 Dados de Telemetria")
-
-
-
-col1, col2 = st.columns(2)
+    return joblib.load(MODEL_PATH)
 
 
+try:
 
-with col1:
+    modelo = carregar_modelo()
 
-    soc = st.slider("Estado de Carga (SoC)", 0.0, 1.0, 0.80, step=0.01)
+except Exception as error:
 
-    soh = st.slider("Estado de Saúde da Bateria (SoH)", 0.0, 1.0, 0.90, step=0.01)
+    st.error(
+        f"Não foi possível carregar o modelo: {error}"
+    )
 
-    battery_voltage = st.number_input("Tensão da Bateria (V)", value=350.0, step=1.0)
-
-    battery_temp = st.number_input("Temperatura da Bateria (°C)", value=30.0, step=0.5)
-
-
-
-with col2:
-
-    motor_temp = st.number_input("Temperatura do Motor (°C)", value=50.0, step=0.5)
-
-    motor_vibration = st.number_input("Vibração do Motor", value=0.5, step=0.1)
-
-    speed = st.number_input("Velocidade (km/h)", value=60.0, step=1.0)
+    st.stop()
 
 
+# ============================================================
+# VERIFICAÇÃO DOS ARQUIVOS
+# ============================================================
 
-st.markdown("---")
+if dataset is None:
 
+    st.error(
+        "Dataset não encontrado."
+    )
 
+    st.code(
+        str(DATASET_PATH),
+        language="text"
+    )
 
-# 4. Execução da Previsão
+    st.info(
+        "Verifique se o ficheiro está dentro da pasta "
+        "'data' e se o nome é exatamente "
+        "'dataset_carro.csv'."
+    )
 
-if st.button("🔮 Prever Risco de Falha", use_container_width=True):
-
-    input_data = pd.DataFrame([[
-
-        soc, soh, battery_voltage, battery_temp,
-
-        motor_temp, motor_vibration, speed
-
-    ]], columns=[
-
-        'SoC', 'SoH', 'Battery_Voltage', 'Battery_Temperature',
-
-        'Motor_Temperature', 'Motor_Vibration', 'Driving_Speed'
-
-    ])
-
-   
-
-    prediction = model.predict(input_data)[0]
-
-    probabilities = model.predict_proba(input_data)[0]
-
-    prob_failure = probabilities[1] * 100
+    st.stop()
 
 
+if modelo is None:
 
-    st.subheader("📌 Resultado da Análise")
+    st.error(
+        "Modelo não encontrado."
+    )
 
-   
+    st.code(
+        str(MODEL_PATH),
+        language="text"
+    )
 
-    if prediction == 1:
+    st.info(
+        "Verifique se o ficheiro 'modelo.pkl' está "
+        "na mesma pasta que o app.py."
+    )
 
-        st.error(f"⚠️ **Atenção:** Alto Risco de Falha! (Probabilidade: {prob_failure:.1f}%)")
-
-    else:
-
-        st.success(f"✅ **Estado Normal:** Baixo Risco de Falha (Probabilidade de Falha: {prob_failure:.1f}%)")
-
+    st.stop()
 
 
-    st.progress(int(prob_failure))
+# ============================================================
+# TOP BAR
+# ============================================================
+
+st.markdown(
+    """
+    <div class="topbar">
+
+        <div class="brand">
+            Machine Condition Assessment
+        </div>
+
+        <div class="system-status">
+
+            <span class="status-dot"></span>
+
+            System operational
+
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# HERO
+# ============================================================
+
+st.markdown(
+    """
+    <div class="hero">
+
+        <div class="hero-label">
+            Predictive Maintenance
+        </div>
+
+        <div class="hero-title">
+            Machine condition assessment
+        </div>
+
+        <div class="hero-description">
+            Evaluate the current operating conditions of a machine
+            and estimate the likelihood of a failure using
+            historical operati
+```
