@@ -542,5 +542,498 @@ st.markdown(
         <div class="hero-description">
             Evaluate the current operating conditions of a machine
             and estimate the likelihood of a failure using
-            historical operati
+            historical operational data.
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# LAYOUT PRINCIPAL
+# ============================================================
+
+left_column, right_column = st.columns(
+    [1.4, 0.8],
+    gap="large"
+)
+
+
+# ============================================================
+# PARÂMETROS
+# ============================================================
+
+with left_column:
+
+    st.markdown(
+        """
+        <div class="section-title">
+            Operational parameters
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="card">
+
+            <div class="card-title">
+                Machine operating conditions
+            </div>
+
+            <div class="card-description">
+                Enter the measurements collected from the machine.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        air_temperature = st.number_input(
+            "Air temperature [K]",
+            min_value=250.0,
+            max_value=350.0,
+            value=298.0,
+            step=0.1
+        )
+
+        process_temperature = st.number_input(
+            "Process temperature [K]",
+            min_value=250.0,
+            max_value=400.0,
+            value=308.0,
+            step=0.1
+        )
+
+        rotational_speed = st.number_input(
+            "Rotational speed [rpm]",
+            min_value=0.0,
+            max_value=5000.0,
+            value=1500.0,
+            step=10.0
+        )
+
+    with col2:
+
+        torque = st.number_input(
+            "Torque [Nm]",
+            min_value=0.0,
+            max_value=150.0,
+            value=40.0,
+            step=0.5
+        )
+
+        tool_wear = st.number_input(
+            "Tool wear [min]",
+            min_value=0.0,
+            max_value=300.0,
+            value=100.0,
+            step=1.0
+        )
+
+        machine_id = st.number_input(
+            "Machine identifier",
+            min_value=1,
+            max_value=10000,
+            value=1,
+            step=1
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    analisar = st.button(
+        "Assess machine condition"
+    )
+
+
+# ============================================================
+# INFORMAÇÃO
+# ============================================================
+
+with right_column:
+
+    st.markdown(
+        """
+        <div class="section-title">
+            Assessment scope
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="card">
+
+            <div class="card-title">
+                Operational assessment
+            </div>
+
+            <div class="card-description">
+                The assessment considers the main operating
+                characteristics associated with machine condition.
+            </div>
+
+            <div style="
+                border-top: 1px solid #EAECF0;
+                padding-top: 0.8rem;
+            ">
+
+                <div style="
+                    padding: 0.5rem 0;
+                    color: #475467;
+                    font-size: 0.82rem;
+                ">
+                    Temperature
+                </div>
+
+                <div style="
+                    padding: 0.5rem 0;
+                    color: #475467;
+                    font-size: 0.82rem;
+                ">
+                    Rotation
+                </div>
+
+                <div style="
+                    padding: 0.5rem 0;
+                    color: #475467;
+                    font-size: 0.82rem;
+                ">
+                    Torque
+                </div>
+
+                <div style="
+                    padding: 0.5rem 0;
+                    color: #475467;
+                    font-size: 0.82rem;
+                ">
+                    Tool wear
+                </div>
+
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# PREVISÃO
+# ============================================================
+
+if analisar:
+
+    # --------------------------------------------------------
+    # Dados
+    # --------------------------------------------------------
+
+    dados = pd.DataFrame(
+        [{
+            "UDI": machine_id,
+            "Air temperature [K]": air_temperature,
+            "Process temperature [K]": process_temperature,
+            "Rotational speed [rpm]": rotational_speed,
+            "Torque [Nm]": torque,
+            "Tool wear [min]": tool_wear
+        }]
+    )
+
+
+    # --------------------------------------------------------
+    # Previsão
+    # --------------------------------------------------------
+
+    try:
+
+        previsao = modelo.predict(dados)[0]
+
+    except Exception as error:
+
+        st.error(
+            "O modelo não conseguiu processar os dados fornecidos."
+        )
+
+        with st.expander("Detalhes técnicos"):
+
+            st.code(
+                str(error),
+                language="text"
+            )
+
+        st.stop()
+
+
+    # --------------------------------------------------------
+    # Probabilidade
+    # --------------------------------------------------------
+
+    probabilidade = None
+
+    if hasattr(modelo, "predict_proba"):
+
+        try:
+
+            probabilidade = modelo.predict_proba(
+                dados
+            )[0][1]
+
+        except Exception:
+
+            probabilidade = None
+
+
+    # ========================================================
+    # RESULTADO
+    # ========================================================
+
+    st.markdown(
+        "<br>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="section-title">
+            Assessment result
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # --------------------------------------------------------
+    # Estado
+    # --------------------------------------------------------
+
+    if previsao == 1:
+
+        if probabilidade is not None and probabilidade >= 0.70:
+
+            classe = "critical"
+            estado = "HIGH RISK"
+
+            descricao = (
+                "The current operating conditions indicate "
+                "a high estimated likelihood of machine failure."
+            )
+
+        else:
+
+            classe = "warning"
+            estado = "ATTENTION"
+
+            descricao = (
+                "The current operating conditions indicate "
+                "an increased estimated likelihood of machine failure."
+            )
+
+    else:
+
+        classe = "normal"
+        estado = "NORMAL"
+
+        descricao = (
+            "The current operating conditions do not indicate "
+            "a machine failure."
+        )
+
+
+    st.markdown(
+        f"""
+        <div class="assessment">
+
+            <div class="assessment-label">
+                Current assessment
+            </div>
+
+            <div class="assessment-status {classe}">
+                {estado}
+            </div>
+
+            <div class="assessment-description">
+                {descricao}
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    # ========================================================
+    # PROBABILIDADE
+    # ========================================================
+
+    if probabilidade is not None:
+
+        percentagem = max(
+            0,
+            min(
+                probabilidade * 100,
+                100
+            )
+        )
+
+        st.markdown(
+            f"""
+            <div class="probability-box">
+
+                <div class="assessment-label">
+                    Estimated failure probability
+                </div>
+
+                <div class="probability-header">
+
+                    <span>
+                        Model assessment
+                    </span>
+
+                    <span class="probability-value">
+                        {percentagem:.1f}%
+                    </span>
+
+                </div>
+
+                <div class="progress-background">
+
+                    <div
+                        class="progress-fill"
+                        style="width:{percentagem}%"
+                    ></div>
+
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # ========================================================
+    # INDICADORES
+    # ========================================================
+
+    st.markdown(
+        "<br>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="section-title">
+            Current operating values
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    metric1, metric2, metric3 = st.columns(3)
+
+
+    with metric1:
+
+        st.markdown(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-label">
+                    Air temperature
+                </div>
+
+                <div class="metric-value">
+                    {air_temperature:.1f} K
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    with metric2:
+
+        st.markdown(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-label">
+                    Rotational speed
+                </div>
+
+                <div class="metric-value">
+                    {rotational_speed:,.0f} rpm
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    with metric3:
+
+        st.markdown(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-label">
+                    Tool wear
+                </div>
+
+                <div class="metric-value">
+                    {tool_wear:.0f} min
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # ========================================================
+    # DADOS DA PREVISÃO
+    # ========================================================
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    with st.expander("View assessment data"):
+
+        st.dataframe(
+            dados,
+            use_container_width=True,
+            hide_index=True
+        )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown(
+    """
+    <div class="footer">
+
+        <div>
+            Machine Condition Assessment
+        </div>
+
+        <div>
+            Predictive Maintenance · Operational Analytics
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 ```
